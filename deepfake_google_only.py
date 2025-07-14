@@ -7,7 +7,7 @@ import json
 from PIL import Image
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-# from telegram.ext import Dispatcher
+from telegram.ext import Dispatcher
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime
@@ -500,11 +500,14 @@ def set_webhook():
         return 'Set RENDER_EXTERNAL_URL or WEBHOOK_URL env variable', 500
     webhook_url = os.environ.get('WEBHOOK_URL') or os.environ.get('RENDER_EXTERNAL_URL')
     webhook_url = webhook_url.rstrip('/') + f"/webhook/{TELEGRAM_TOKEN}"
-    set_hook = bot.set_webhook(url=webhook_url)
-    if set_hook:
-        return f'Webhook set to {webhook_url}', 200
-    else:
-        return 'Failed to set webhook', 500
+    try:
+        set_hook = asyncio.run(bot.set_webhook(url=webhook_url))
+        if set_hook:
+            return f'Webhook set to {webhook_url}', 200
+        else:
+            return 'Failed to set webhook', 500
+    except Exception as e:
+        return f'Error: {e}', 500
 
 @app.route(f'/webhook/{TELEGRAM_TOKEN}', methods=['POST'])
 def webhook():
