@@ -25,3 +25,4 @@ soundfile==0.12.1
 tqdm==4.66.1
 transformers==4.36.2
 googletrans==3.1.0a0 
+setuptools
