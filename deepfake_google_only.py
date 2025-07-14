@@ -5,11 +5,14 @@ import base64
 import requests
 import json
 from PIL import Image
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Dispatcher
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime
+from flask import Flask, request, jsonify
+import threading
 
 # Load environment variables
 load_dotenv()
@@ -478,6 +481,40 @@ class ImageAnalysisBot:
 # Initialize the bot
 image_bot = ImageAnalysisBot()
 
+# Flask app for webhook
+app = Flask(__name__)
+
+# Telegram bot and dispatcher
+bot = Bot(token=TELEGRAM_TOKEN) if TELEGRAM_TOKEN else None
+application = None
+
+def run_asyncio_loop(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+@app.route('/set_webhook', methods=['GET'])
+def set_webhook():
+    if not TELEGRAM_TOKEN:
+        return 'TELEGRAM_TOKEN not set', 500
+    if not os.environ.get('RENDER_EXTERNAL_URL') and not os.environ.get('WEBHOOK_URL'):
+        return 'Set RENDER_EXTERNAL_URL or WEBHOOK_URL env variable', 500
+    webhook_url = os.environ.get('WEBHOOK_URL') or os.environ.get('RENDER_EXTERNAL_URL')
+    webhook_url = webhook_url.rstrip('/') + f"/webhook/{TELEGRAM_TOKEN}"
+    set_hook = bot.set_webhook(url=webhook_url)
+    if set_hook:
+        return f'Webhook set to {webhook_url}', 200
+    else:
+        return 'Failed to set webhook', 500
+
+@app.route(f'/webhook/{TELEGRAM_TOKEN}', methods=['POST'])
+def webhook():
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(force=True), bot)
+        # Use the dispatcher to process the update
+        asyncio.run(application.process_update(update))
+        return 'ok', 200
+    return 'not allowed', 405
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Welcome to Advanced Image Analysis Bot!\n\n"
@@ -653,29 +690,26 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(error_message)
 
 def main():
+    global application
     # Check if Telegram token is available
     if not TELEGRAM_TOKEN:
         print("❌ Error: TELEGRAM_TOKEN not found in environment variables or .env file.")
         return
-    
     # Check if at least Google Vision API is available
     if not GOOGLE_VISION_API_KEY:
         print("❌ Error: GOOGLE_VISION_API_KEY not found in environment variables or .env file.")
         return
-    
     # Create application
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-    
+    application = Application.builder().token(TELEGRAM_TOKEN).concurrent_updates(True).build()
     # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.PHOTO, handle_image))
-    
-    # Start the bot
-    print("🤖 Starting Advanced Image Analysis Telegram Bot...")
+    # Start Flask app
+    port = int(os.environ.get("PORT", 10000))
+    print(f"🤖 Starting Advanced Image Analysis Telegram Bot (webhook mode) on port {port}...")
     print(f"Google Vision API: {'✅ Enabled' if image_bot.vision_api else '❌ Disabled'}")
-    
-    application.run_polling()
+    app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
     main()
