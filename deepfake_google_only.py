@@ -513,13 +513,8 @@ def set_webhook():
 def webhook():
     if request.method == "POST":
         update = Update.de_json(request.get_json(force=True), bot)
-        # Schedule the coroutine on the background event loop
         global loop
-        future = asyncio.run_coroutine_threadsafe(application.process_update(update), loop)
-        try:
-            future.result(timeout=10)  # Wait for completion or timeout
-        except Exception as e:
-            print(f"Error processing update: {e}")
+        asyncio.run_coroutine_threadsafe(application.process_update(update), loop)
         return 'ok', 200
     return 'not allowed', 405
 
