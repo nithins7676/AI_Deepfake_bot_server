@@ -500,8 +500,10 @@ def set_webhook():
         return 'Set RENDER_EXTERNAL_URL or WEBHOOK_URL env variable', 500
     webhook_url = os.environ.get('WEBHOOK_URL') or os.environ.get('RENDER_EXTERNAL_URL')
     webhook_url = webhook_url.rstrip('/') + f"/webhook/{TELEGRAM_TOKEN}"
+    global loop
+    future = asyncio.run_coroutine_threadsafe(bot.set_webhook(url=webhook_url), loop)
     try:
-        set_hook = asyncio.run(bot.set_webhook(url=webhook_url))
+        set_hook = future.result(timeout=10)
         if set_hook:
             return f'Webhook set to {webhook_url}', 200
         else:
