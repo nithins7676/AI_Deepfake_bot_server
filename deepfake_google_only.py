@@ -7,7 +7,6 @@ import json
 from PIL import Image
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from telegram.ext import Dispatcher
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime
@@ -484,7 +483,7 @@ image_bot = ImageAnalysisBot()
 # Flask app for webhook
 app = Flask(__name__)
 
-# Telegram bot and dispatcher
+# Telegram bot and application
 bot = Bot(token=TELEGRAM_TOKEN) if TELEGRAM_TOKEN else None
 application = None
 
@@ -513,7 +512,6 @@ def set_webhook():
 def webhook():
     if request.method == "POST":
         update = Update.de_json(request.get_json(force=True), bot)
-        # Use the dispatcher to process the update
         asyncio.run(application.process_update(update))
         return 'ok', 200
     return 'not allowed', 405
