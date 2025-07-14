@@ -7,7 +7,7 @@ import json
 from PIL import Image
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from telegram.ext import Dispatcher
+# from telegram.ext import Dispatcher
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime
