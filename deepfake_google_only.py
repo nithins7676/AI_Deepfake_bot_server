@@ -486,6 +486,7 @@ app = Flask(__name__)
 # Telegram bot and application
 bot = Bot(token=TELEGRAM_TOKEN) if TELEGRAM_TOKEN else None
 application = None
+loop = None  # Global event loop for async tasks
 
 def run_asyncio_loop(loop):
     asyncio.set_event_loop(loop)
@@ -512,7 +513,13 @@ def set_webhook():
 def webhook():
     if request.method == "POST":
         update = Update.de_json(request.get_json(force=True), bot)
-        asyncio.run(application.process_update(update))
+        # Schedule the coroutine on the background event loop
+        global loop
+        future = asyncio.run_coroutine_threadsafe(application.process_update(update), loop)
+        try:
+            future.result(timeout=10)  # Wait for completion or timeout
+        except Exception as e:
+            print(f"Error processing update: {e}")
         return 'ok', 200
     return 'not allowed', 405
 
@@ -691,7 +698,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(error_message)
 
 def main():
-    global application
+    global application, loop
     # Check if Telegram token is available
     if not TELEGRAM_TOKEN:
         print("❌ Error: TELEGRAM_TOKEN not found in environment variables or .env file.")
@@ -708,6 +715,9 @@ def main():
     application.add_handler(MessageHandler(filters.PHOTO, handle_image))
     # Initialize the application (required for webhook mode)
     asyncio.run(application.initialize())
+    # Start a background event loop for async tasks
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=loop.run_forever, daemon=True).start()
     # Start Flask app
     port = int(os.environ.get("PORT", 10000))
     print(f"🤖 Starting Advanced Image Analysis Telegram Bot (webhook mode) on port {port}...")
