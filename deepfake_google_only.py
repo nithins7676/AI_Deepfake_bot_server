@@ -706,6 +706,8 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.PHOTO, handle_image))
+    # Initialize the application (required for webhook mode)
+    asyncio.run(application.initialize())
     # Start Flask app
     port = int(os.environ.get("PORT", 10000))
     print(f"🤖 Starting Advanced Image Analysis Telegram Bot (webhook mode) on port {port}...")
